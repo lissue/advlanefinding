@@ -50,7 +50,7 @@ I then used the output `objpoints` and `imgpoints` to compute the camera calibra
 
 ![alt text][image1]
 
-I also applied `cv2.warpPerspective()` to confirm it works as expected:
+I also applied `cv2.warpPerspective()` to confirm the perspective warping works as expected:
 
 ![alt text][image2]
 
@@ -65,13 +65,13 @@ To demonstrate this step, I will describe how I apply the distortion correction 
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-I used a combination of color and gradient thresholds to generate a binary image.  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+I used a combination of color and gradient thresholds to generate a binary image.  Here's an example of my output for this step.
 
 ![alt text][image4]
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+The code for my perspective transform includes a function called `unwarp()`, which appears in the 6th cell of the Jupyter notebook.  The `unwarp()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
 
 ```python
 src = np.float32(
@@ -92,8 +92,8 @@ This resulted in the following source and destination points:
 |:-------------:|:-------------:| 
 | 415, 650      | 300, 700      | 
 | 1000, 650     | 1000, 700     |
-| 735, 480      | 1000, 0       |
-| 580, 480      | 300, 0        |
+| 690, 450      | 1000, 0       |
+| 608, 450      | 300, 0        |
 
 I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
 
@@ -101,17 +101,35 @@ I verified that my perspective transform was working as expected by drawing the 
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+I used the histogram sliding method (`find_lane_line()` function in the 6th cell of the Jupyter notebook) to detect the location of lane lines in the binary warped image (bird's eye view as shown below):
 
 ![alt text][image6]
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+I calculated the curvature of the lane and the position of the vehicle using the assumption that
+
+```python
+    ym_per_pix = 30/720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+```
+
+The curvature is calculated from the following equations:
+
+```python
+    left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+    right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+```
+
+The position of vehicle with regard to center of lane is calculated from the following equation:
+
+```python
+    offset = ((left_fitx[-1]+right_fitx[-1])/2 - 640) * xm_per_pix
+```
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+The fitted lane lines from the bird's eye view is warped back to the original image space using the inverse perspective matrix in the function of `cv2.warpPerspective()`. The polygon is stacked on top of the original image using the function `cv2.addWeighted()`. These two functions are part of the `find_lane_line()` function in the 6th cell of the Jupyter notebook, and the returned value of `result` is the composite image as shown below:
 
 ![alt text][image7]
 
@@ -129,4 +147,6 @@ Here's a [link to my video result](./project_video.mp4)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-I'm still tuning the thresholds as the pipeline is having trouble with dashed lane lines. Most likely my filter parameters have been too aggressive and removed some useful info.
+Originally I searched for window centroids and used convolutions to find the lane lines. The result was not very optimized, and I switched to histogram sliding.
+
+Since the pipeline is based on some manual parameters, I suspect its performance would be greatly impacted by weather, camera location, image quality, surrounding vehicles especially if within the masked area for lane line detection.
